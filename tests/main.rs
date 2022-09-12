@@ -1,5 +1,5 @@
 use anyhow::{Context, Result};
-use loc_stats::get_stats::{get_stats, Stats};
+use loc_stats::get_stats::{get_stats, GetStatsOptions, Stats};
 use std::{collections::HashMap, fs, path::PathBuf};
 use uuid::Uuid;
 
@@ -15,8 +15,9 @@ fn smoke_test() -> Result<()> {
     fs::write(dir_name.as_path().join("test.hs"), "-- a\n-- b\n")
         .context("Could not write text file")?;
 
+    let options = GetStatsOptions { gitignore: false };
     assert_eq!(
-        get_stats(dir_name.as_path())?,
+        get_stats(dir_name.as_path(), &options)?,
         Stats {
             total_loc: 2,
             by_lang: HashMap::from([("Haskell", 2)])
@@ -39,8 +40,9 @@ fn deep_dir_tree() -> Result<()> {
     path.push("main.rs");
     fs::write(path, "// wowsers\n")?;
 
+    let options = GetStatsOptions { gitignore: false };
     assert_eq!(
-        get_stats(dir_name.as_path())?,
+        get_stats(dir_name.as_path(), &options)?,
         Stats {
             total_loc: 1,
             by_lang: HashMap::from([("Rust", 1)])
@@ -63,11 +65,38 @@ fn one_million_loc_codebase() -> Result<()> {
         path.pop();
     }
 
+    let options = GetStatsOptions { gitignore: false };
     assert_eq!(
-        get_stats(dir_name.as_path())?,
+        get_stats(dir_name.as_path(), &options)?,
         Stats {
             total_loc: 1_000_000,
             by_lang: HashMap::from([("Brainfuck", 1_000_000)])
+        }
+    );
+
+    Ok(())
+}
+
+#[test]
+fn test_gitignore() -> Result<()> {
+    let dir_name = PathBuf::from("tmp")
+        .as_path()
+        .join(PathBuf::from(Uuid::new_v4().to_string()));
+    fs::create_dir_all(&dir_name).context("Could not create test dir")?;
+    fs::write(dir_name.as_path().join("test.hs"), "-- a\n-- b\n")
+        .context("Could not write text file")?;
+    fs::write(dir_name.as_path().join("test2.js"), "// a\n// b\n")
+        .context("Could not write text file")?;
+
+    fs::write(dir_name.as_path().join(".gitignore"), "test2.js")
+        .context("Could not write text file")?;
+
+    let options = GetStatsOptions { gitignore: true };
+    assert_eq!(
+        get_stats(dir_name.as_path(), &options)?,
+        Stats {
+            total_loc: 3,
+            by_lang: HashMap::from([("Haskell", 2), ("Other", 1)])
         }
     );
 
