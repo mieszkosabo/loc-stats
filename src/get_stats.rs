@@ -6,6 +6,7 @@ use std::{
 };
 
 use anyhow::Result;
+use serde::Serialize;
 
 use crate::langs::{init_languages_hashmap, LangsMap};
 
@@ -49,7 +50,7 @@ fn get_file_lang(path: &Path, langs_map: &LangsMap) -> Option<&'static str> {
     Some(langs_map.get(ext.to_str().unwrap_or_default())?)
 }
 
-#[derive(Debug, PartialEq, Eq)]
+#[derive(Debug, PartialEq, Eq, Serialize)]
 pub struct Stats {
     pub total_loc: usize,
     pub by_lang: HashMap<&'static str, usize>,

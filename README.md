@@ -18,7 +18,7 @@ TODO:
 - [ ] add pretty output
 - [ ] support omitting files listed in .gitignore
 - [ ] add more stats, like number of files, percentages etc.
-- [ ] add json output format
+- [x] add json output format
 
 ## Testing
 
