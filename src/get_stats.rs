@@ -15,44 +15,33 @@ pub struct GetStatsOptions {
     pub gitignore: bool,
 }
 
-// fn init_gitignored(is_gitignore: bool, path: Box<Path>) -> impl FnMut(Box<Path>) -> bool {
-//     let mut ig = Gitignore::new(path.to_owned(), true, true);
-//     let gitignore_path = path.join(".gitignore");
-//     let globs1 = fs::read_to_string(gitignore_path)
-//         .unwrap_or_default()
-//         .clone();
-//     let globs2: Vec<String> = globs1.lines().map(|s| s.to_string()).collect();
-
-//     move |p: Box<Path>| {
-//         let globs3 = globs2.clone();
-//         let gg: Vec<&str> = globs3.into_iter().collect();
-//         if is_gitignore {
-//             !ig.ignores(gg.as_slice(), p)
-//         } else {
-//             true
-//         }
-//     }
-// }
+#[derive(Debug, PartialEq, Eq, Serialize)]
+pub struct Stats {
+    pub total_loc: usize,
+    pub by_lang: HashMap<&'static str, usize>,
+}
 
 pub fn get_stats(path: &Path, options: &GetStatsOptions) -> Result<Stats> {
+    // configure gitignore
     let gitignore = options.gitignore;
     let mut ig = Gitignore::new(path, true, true);
     let gitignore_path = path.join(".gitignore");
     let globs = fs::read_to_string(gitignore_path).unwrap_or_default();
     let globs: Vec<&str> = globs.lines().collect();
 
-    let mut include_file = |p: Box<&Path>| {
+    let mut include_file = |p: &Path| {
         if gitignore {
-            !ig.ignores(&globs, p.as_ref())
+            !ig.ignores(&globs, p)
         } else {
             true
         }
     };
 
+    // count stats for all files that should be included
     let langs_map = init_languages_hashmap();
     let mut stats = Stats::new();
     for p in get_file_paths(path, &mut include_file)? {
-        if include_file(Box::new(p.as_path())) {
+        if include_file(p.as_path()) {
             let line_len = get_file_len(&p)?;
             let lang = get_file_lang(&p, &langs_map).unwrap_or("Other");
             let entry = stats.by_lang.entry(lang).or_insert(0);
@@ -65,13 +54,12 @@ pub fn get_stats(path: &Path, options: &GetStatsOptions) -> Result<Stats> {
 
 fn get_file_paths(
     path: &Path,
-    include_dir: &mut impl FnMut(Box<&Path>) -> bool,
+    include_dir: &mut impl FnMut(&Path) -> bool,
 ) -> Result<Vec<PathBuf>> {
     let mut result = vec![];
-    if path.is_dir()
-        && !path.to_str().unwrap_or_default().contains(".git")
-        && include_dir(Box::new(path))
-    {
+    let is_git_dir = path.to_str().unwrap_or_default().contains(".git");
+
+    if path.is_dir() && !is_git_dir && include_dir(path) {
         for entry in fs::read_dir(path)? {
             let entry = entry?;
             let p = entry.path();
@@ -83,6 +71,7 @@ fn get_file_paths(
             }
         }
     }
+
     Ok(result)
 }
 
@@ -93,12 +82,6 @@ fn get_file_len(path: &Path) -> Result<usize> {
 fn get_file_lang(path: &Path, langs_map: &LangsMap) -> Option<&'static str> {
     let ext = path.extension()?;
     Some(langs_map.get(ext.to_str().unwrap_or_default())?)
-}
-
-#[derive(Debug, PartialEq, Eq, Serialize)]
-pub struct Stats {
-    pub total_loc: usize,
-    pub by_lang: HashMap<&'static str, usize>,
 }
 
 impl Stats {
