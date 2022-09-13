@@ -1,8 +1,9 @@
 use std::{
-    collections::HashMap,
-    fs,
+    collections::{HashMap, HashSet},
+    env, fs,
     io::BufRead,
     path::{Path, PathBuf},
+    process::Command,
 };
 
 use crate::langs::{init_languages_hashmap, LangsMap};
@@ -36,7 +37,39 @@ pub struct Stats {
     pub by_lang: HashMap<&'static str, LangStat>,
 }
 
+// With big repos that have a lot of entires in .gitignore
+// wildcard matching each file with all of the patters is a major
+// bottleneck, so we try to be sneaky by looking up tracked files
+// by git, which isn't 100% equal to "supports .gitignore", but in
+// most cases is what we want. And the performance gain is huge.
+// If this function fail, then we fallback to pattern matching.
+fn try_get_git_tracked_files() -> Result<HashSet<String>> {
+    fs::metadata(".git")?;
+    let output = Command::new("git")
+        .arg("ls-tree")
+        .arg("--full-tree")
+        .arg("-r")
+        .arg("--name-only")
+        .arg("HEAD")
+        .output()?;
+
+    let as_string = String::from_utf8(output.stdout.to_vec())?;
+    let mut set = HashSet::new();
+
+    as_string.lines().into_iter().for_each(|s| {
+        set.insert(format!("./{}", s.to_owned()));
+    });
+
+    Ok(set)
+}
+
 pub fn get_stats(path: &Path, options: &GetStatsOptions) -> Result<Stats> {
+    // We chdir into path, so that the paths are relative thus shorter
+    // thus the overall performance is improved.
+    env::set_current_dir(path)?;
+    let path = PathBuf::from(".".to_owned());
+    let path = path.as_path();
+
     // configure gitignore
     let gitignore = options.gitignore;
     let mut ig = Gitignore::default();
@@ -54,9 +87,18 @@ pub fn get_stats(path: &Path, options: &GetStatsOptions) -> Result<Stats> {
         .filter(|l| !l.is_empty() && !l.starts_with('#'))
         .collect();
 
+    let tracked_files = try_get_git_tracked_files();
+    let is_getting_tracked_files_successful = tracked_files.is_ok();
+    let tracked_files = tracked_files.unwrap_or_default();
+
     let mut include_file = |p: &Path| {
         if gitignore {
-            !ig.ignores(&globs, ig.root.join(p))
+            // Notice the special case for '.'
+            if is_getting_tracked_files_successful && !p.ends_with(".") {
+                return tracked_files.contains(p.to_str().unwrap_or_default());
+            } else {
+                !ig.ignores(&globs, ig.root.join(p))
+            }
         } else {
             true
         }
@@ -90,7 +132,7 @@ fn get_file_paths(
 ) -> Result<Vec<PathBuf>> {
     let mut result = vec![];
     let is_git_dir = path.to_str().unwrap_or_default().contains(".git");
-    if path.is_dir() && !is_git_dir && include_path(path) {
+    if path.is_dir() && !is_git_dir {
         for entry in fs::read_dir(path)? {
             let entry = entry?;
             let p = entry.path();

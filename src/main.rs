@@ -1,4 +1,4 @@
-use std::{env, path::PathBuf};
+use std::path::PathBuf;
 
 use anyhow::Result;
 use clap::Parser;
@@ -23,8 +23,8 @@ fn main() -> Result<()> {
     let options = GetStatsOptions {
         gitignore: args.gitignore.unwrap_or(true),
     };
-    env::set_current_dir(args.path)?;
-    let stats = get_stats(PathBuf::from(".".to_owned()).as_path(), &options)?;
+
+    let stats = get_stats(PathBuf::from(args.path).as_path(), &options)?;
 
     if args.json {
         let json = serde_json::to_string_pretty(&stats)?;
@@ -32,5 +32,6 @@ fn main() -> Result<()> {
     } else {
         stats.pretty_output();
     }
+
     Ok(())
 }
