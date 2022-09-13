@@ -29,8 +29,7 @@ fn main() -> Result<()> {
         let json = serde_json::to_string_pretty(&stats)?;
         println!("{}", json);
     } else {
-        // TODO: pretty printing
-        println!("{:?}", stats);
+        stats.pretty_output();
     }
     Ok(())
 }

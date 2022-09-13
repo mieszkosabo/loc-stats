@@ -13,12 +13,10 @@ loc-stats /path/to/dir
 
 TODO:
 
-## Roadmap
+## Features
 
-- [x] support omitting files listed in .gitignore
-- [x] add json output format
-- [x] add more stats, like number of files, percentages etc.
-- [ ] add pretty output
+- supports omitting files listed in .gitignore
+- json output format with --json option
 
 ## Testing
 
