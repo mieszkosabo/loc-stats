@@ -39,14 +39,24 @@ pub struct Stats {
 pub fn get_stats(path: &Path, options: &GetStatsOptions) -> Result<Stats> {
     // configure gitignore
     let gitignore = options.gitignore;
-    let mut ig = Gitignore::new(path, true, true);
+    let mut ig = Gitignore::default();
     let gitignore_path = path.join(".gitignore");
     let globs = fs::read_to_string(gitignore_path).unwrap_or_default();
-    let globs: Vec<&str> = globs.lines().collect();
+    let globs: Vec<&str> = globs
+        .lines()
+        .map(|l| {
+            if l.starts_with('/') {
+                l.get(1..).unwrap_or_default()
+            } else {
+                l
+            }
+        })
+        .filter(|l| !l.is_empty() && !l.starts_with('#'))
+        .collect();
 
     let mut include_file = |p: &Path| {
         if gitignore {
-            !ig.ignores(&globs, p)
+            !ig.ignores(&globs, ig.root.join(p))
         } else {
             true
         }
@@ -56,14 +66,12 @@ pub fn get_stats(path: &Path, options: &GetStatsOptions) -> Result<Stats> {
     let langs_map = init_languages_hashmap();
     let mut stats = Stats::new();
     for p in get_file_paths(path, &mut include_file)? {
-        if include_file(p.as_path()) {
-            let line_len = get_file_len(&p)?;
-            let lang = get_file_lang(&p, &langs_map).unwrap_or("Other");
-            let entry = stats.by_lang.entry(lang).or_default();
-            entry.loc += line_len;
-            stats.total_loc += line_len;
-            stats.number_of_files += 1;
-        }
+        let line_len = get_file_len(&p)?;
+        let lang = get_file_lang(&p, &langs_map).unwrap_or("Other");
+        let entry = stats.by_lang.entry(lang).or_default();
+        entry.loc += line_len;
+        stats.total_loc += line_len;
+        stats.number_of_files += 1;
     }
 
     // calculate percents
@@ -78,19 +86,18 @@ pub fn get_stats(path: &Path, options: &GetStatsOptions) -> Result<Stats> {
 
 fn get_file_paths(
     path: &Path,
-    include_dir: &mut impl FnMut(&Path) -> bool,
+    include_path: &mut impl FnMut(&Path) -> bool,
 ) -> Result<Vec<PathBuf>> {
     let mut result = vec![];
     let is_git_dir = path.to_str().unwrap_or_default().contains(".git");
-
-    if path.is_dir() && !is_git_dir && include_dir(path) {
+    if path.is_dir() && !is_git_dir && include_path(path) {
         for entry in fs::read_dir(path)? {
             let entry = entry?;
             let p = entry.path();
             if p.is_dir() {
-                let mut paths = get_file_paths(p.as_path(), include_dir)?;
+                let mut paths = get_file_paths(p.as_path(), include_path)?;
                 result.append(&mut paths);
-            } else {
+            } else if include_path(&p) {
                 result.push(p.to_path_buf());
             }
         }

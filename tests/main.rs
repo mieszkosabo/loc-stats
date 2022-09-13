@@ -109,28 +109,31 @@ fn test_gitignore() -> Result<()> {
     fs::write(dir_name.as_path().join("test2.js"), "// a\n// b\n")
         .context("Could not write text file")?;
 
-    fs::write(dir_name.as_path().join(".gitignore"), "test2.js")
-        .context("Could not write text file")?;
+    fs::write(
+        dir_name.as_path().join(".gitignore"),
+        "/test2.js\n\n# this is a comment\n",
+    )
+    .context("Could not write text file")?;
 
     let options = GetStatsOptions { gitignore: true };
     assert_eq!(
         get_stats(dir_name.as_path(), &options)?,
         Stats {
-            total_loc: 3,
+            total_loc: 5,
             number_of_files: 2,
             by_lang: HashMap::from([
                 (
                     "Haskell",
                     LangStat {
                         loc: 2,
-                        percent: 66.66
+                        percent: 40.0
                     }
                 ),
                 (
                     "Other",
                     LangStat {
-                        loc: 1,
-                        percent: 33.33
+                        loc: 3,
+                        percent: 60.0
                     }
                 )
             ])
