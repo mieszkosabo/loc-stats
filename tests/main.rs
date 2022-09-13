@@ -1,5 +1,5 @@
 use anyhow::{Context, Result};
-use loc_stats::get_stats::{get_stats, GetStatsOptions, Stats};
+use loc_stats::get_stats::{get_stats, GetStatsOptions, LangStat, Stats};
 use std::{collections::HashMap, fs, path::PathBuf};
 use uuid::Uuid;
 
@@ -20,7 +20,14 @@ fn smoke_test() -> Result<()> {
         get_stats(dir_name.as_path(), &options)?,
         Stats {
             total_loc: 2,
-            by_lang: HashMap::from([("Haskell", 2)])
+            number_of_files: 1,
+            by_lang: HashMap::from([(
+                "Haskell",
+                LangStat {
+                    loc: 2,
+                    percent: 100.0
+                }
+            )])
         }
     );
 
@@ -45,7 +52,14 @@ fn deep_dir_tree() -> Result<()> {
         get_stats(dir_name.as_path(), &options)?,
         Stats {
             total_loc: 1,
-            by_lang: HashMap::from([("Rust", 1)])
+            number_of_files: 1,
+            by_lang: HashMap::from([(
+                "Rust",
+                LangStat {
+                    loc: 1,
+                    percent: 100.0
+                }
+            )])
         }
     );
 
@@ -70,7 +84,14 @@ fn one_million_loc_codebase() -> Result<()> {
         get_stats(dir_name.as_path(), &options)?,
         Stats {
             total_loc: 1_000_000,
-            by_lang: HashMap::from([("Brainfuck", 1_000_000)])
+            number_of_files: 100,
+            by_lang: HashMap::from([(
+                "Brainfuck",
+                LangStat {
+                    loc: 1_000_000,
+                    percent: 100.0
+                }
+            )])
         }
     );
 
@@ -96,7 +117,23 @@ fn test_gitignore() -> Result<()> {
         get_stats(dir_name.as_path(), &options)?,
         Stats {
             total_loc: 3,
-            by_lang: HashMap::from([("Haskell", 2), ("Other", 1)])
+            number_of_files: 2,
+            by_lang: HashMap::from([
+                (
+                    "Haskell",
+                    LangStat {
+                        loc: 2,
+                        percent: 66.66
+                    }
+                ),
+                (
+                    "Other",
+                    LangStat {
+                        loc: 1,
+                        percent: 33.33
+                    }
+                )
+            ])
         }
     );
 

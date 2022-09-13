@@ -5,20 +5,35 @@ use std::{
     path::{Path, PathBuf},
 };
 
+use crate::langs::{init_languages_hashmap, LangsMap};
 use anyhow::Result;
 use gitignored::Gitignore;
 use serde::Serialize;
-
-use crate::langs::{init_languages_hashmap, LangsMap};
 
 pub struct GetStatsOptions {
     pub gitignore: bool,
 }
 
-#[derive(Debug, PartialEq, Eq, Serialize)]
+#[derive(Debug, PartialEq, Serialize)]
+pub struct LangStat {
+    pub loc: usize,
+    pub percent: f32,
+}
+
+impl Default for LangStat {
+    fn default() -> Self {
+        Self {
+            loc: 0,
+            percent: 0.0,
+        }
+    }
+}
+
+#[derive(Debug, PartialEq, Serialize)]
 pub struct Stats {
     pub total_loc: usize,
-    pub by_lang: HashMap<&'static str, usize>,
+    pub number_of_files: u32,
+    pub by_lang: HashMap<&'static str, LangStat>,
 }
 
 pub fn get_stats(path: &Path, options: &GetStatsOptions) -> Result<Stats> {
@@ -44,11 +59,20 @@ pub fn get_stats(path: &Path, options: &GetStatsOptions) -> Result<Stats> {
         if include_file(p.as_path()) {
             let line_len = get_file_len(&p)?;
             let lang = get_file_lang(&p, &langs_map).unwrap_or("Other");
-            let entry = stats.by_lang.entry(lang).or_insert(0);
-            *entry += line_len;
+            let entry = stats.by_lang.entry(lang).or_default();
+            entry.loc += line_len;
             stats.total_loc += line_len;
+            stats.number_of_files += 1;
         }
     }
+
+    // calculate percents
+    for entry in &mut stats.by_lang {
+        entry.1.percent = entry.1.loc as f32 / stats.total_loc as f32 * 100.0;
+        // round down to 2 decimal places
+        entry.1.percent = (entry.1.percent * 100.0).floor() / 100.0;
+    }
+
     Ok(stats)
 }
 
@@ -88,6 +112,7 @@ impl Stats {
     pub fn new() -> Self {
         Self {
             total_loc: 0,
+            number_of_files: 0,
             by_lang: HashMap::new(),
         }
     }

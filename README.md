@@ -15,10 +15,10 @@ TODO:
 
 ## Roadmap
 
-- [ ] add pretty output
-- [ ] support omitting files listed in .gitignore
-- [ ] add more stats, like number of files, percentages etc.
+- [x] support omitting files listed in .gitignore
 - [x] add json output format
+- [x] add more stats, like number of files, percentages etc.
+- [ ] add pretty output
 
 ## Testing
 
