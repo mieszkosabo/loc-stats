@@ -11,7 +11,7 @@ loc-stats --json --gitignore=false /path/to/dir
 
 ### Example output:
 
-```bash
+```
 
     __                      __        __
    / /___  _____      _____/ /_____ _/ /______
@@ -20,12 +20,12 @@ loc-stats --json --gitignore=false /path/to/dir
 /_/\____/\___/     /____/\__/\__,_/\__/____/
 
 
-Lines of code: 1895    Number of files: 11
+Lines of code: 1913     Number of files: 11
 
-Rust            1334    70.39%
-JSON             479    25.27%
-Markdown          50     2.63%
-TOML              21      1.1%
+Rust            1330    69.52%
+JSON             479    25.03%
+Markdown          72     3.76%
+TOML              21     1.09%
 Shell             10     0.52%
 Other              1     0.05%
 ```
