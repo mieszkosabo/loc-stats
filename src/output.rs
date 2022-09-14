@@ -23,13 +23,9 @@ impl Stats {
 
         let total_loc = format!("{}", self.total_loc).bold().yellow();
         let number_of_files = format!("{}", self.number_of_files).bold().yellow();
-        print!(
-            "{}: {}\t",
-            "Lines of code:".bold().bright_white(),
-            total_loc
-        );
+        print!("{} {}\t", "Lines of code:".bold().bright_white(), total_loc);
         println!(
-            "{}: {}",
+            "{} {}",
             "Number of files:".bold().bright_white(),
             number_of_files
         );
