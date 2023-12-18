@@ -6,7 +6,7 @@ use std::{
     path::Path,
 };
 
-use crate::langs::{init_languages_hashmap, LangsMap};
+use crate::langs::{LangsMap, LANGS_MAP};
 use anyhow::Result;
 use ignore::WalkBuilder;
 use serde::Serialize;
@@ -33,12 +33,11 @@ impl Default for LangStat {
 #[derive(Debug, PartialEq, Serialize)]
 pub struct Stats {
     pub total_loc: usize,
-    pub number_of_files: u32,
+    pub number_of_files: usize,
     pub by_lang: HashMap<&'static str, LangStat>,
 }
 
 pub fn get_stats_sync(path: &Path, options: &GetStatsOptions) -> Result<Stats> {
-    let langs_map = init_languages_hashmap();
     let mut paths = Vec::new();
 
     let sync_walker = WalkBuilder::new(path).git_ignore(options.gitignore).build();
@@ -59,10 +58,8 @@ pub fn get_stats_sync(path: &Path, options: &GetStatsOptions) -> Result<Stats> {
 
     paths.iter().for_each(|path| {
         total_files += 1;
-        let file = File::open(path).expect("Unable to open file");
-        let reader = BufReader::new(file);
-        let loc = reader.lines().count();
-        let lang = get_file_lang(path, &langs_map).unwrap_or("Other");
+        let loc = count_newlines(path).unwrap_or_default();
+        let lang = get_file_lang(path, &LANGS_MAP).unwrap_or("Other");
         let entry = stats.by_lang.entry(lang).or_default();
 
         total_loc += loc;
@@ -82,7 +79,6 @@ pub fn get_stats_sync(path: &Path, options: &GetStatsOptions) -> Result<Stats> {
 }
 
 pub fn get_stats_parallel(path: &Path, options: &GetStatsOptions) -> Result<Stats> {
-    let langs_map = init_languages_hashmap();
     let stats = Mutex::new(Stats::new());
 
     let walker = WalkBuilder::new(path)
@@ -106,8 +102,8 @@ pub fn get_stats_parallel(path: &Path, options: &GetStatsOptions) -> Result<Stat
                 return WalkState::Continue;
             }
 
-            let loc = get_file_len(path).unwrap_or_default();
-            let lang = get_file_lang(path, &langs_map).unwrap_or("Other");
+            let loc = count_newlines(path).unwrap_or_default();
+            let lang = get_file_lang(path, &LANGS_MAP).unwrap_or("Other");
 
             let mut stats = stats.lock().unwrap();
             stats.total_loc += loc;
@@ -130,13 +126,27 @@ pub fn get_stats_parallel(path: &Path, options: &GetStatsOptions) -> Result<Stat
     Ok(stats)
 }
 
-fn get_file_len(path: &Path) -> Result<usize> {
+#[inline]
+fn count_newlines(path: &Path) -> Result<usize> {
     let file = File::open(path)?;
-    let reader = BufReader::new(file);
-    let loc = reader.lines().count();
-    Ok(loc)
+    let mut reader = BufReader::new(file);
+
+    let mut n = 0;
+    let mut v = Vec::new();
+    let new_line_byte = 0xA;
+    loop {
+        v.clear();
+        let res = reader.read_until(new_line_byte, &mut v);
+        if res.is_err() || res.unwrap() == 0 {
+            break;
+        }
+        n += 1;
+    }
+
+    Ok(n)
 }
 
+#[inline]
 fn get_file_lang(path: &Path, langs_map: &LangsMap) -> Option<&'static str> {
     let ext = path.extension()?;
     Some(langs_map.get(ext.to_str().unwrap_or_default())?)
