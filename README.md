@@ -65,8 +65,8 @@ OPTIONS:
 
 ## Testing
 
-Run tests via a script instead of `cargo test` to clean up the test directory after running the tests.
+Run tests with:
 
 ```bash
-./scripts/run_tests.sh
+cargo test
 ```

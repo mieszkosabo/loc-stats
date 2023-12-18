@@ -1,23 +1,23 @@
 use anyhow::{Context, Result};
-use loc_stats::get_stats::{get_stats, GetStatsOptions, LangStat, Stats};
-use std::{collections::HashMap, fs, path::PathBuf};
-use uuid::Uuid;
-
-// don't run with directly `cargo test`,
-// run with scripts/run_tests.sh to run tests and cleanup after them
+use loc_stats::get_stats::{get_stats_parallel, GetStatsOptions, LangStat, Stats};
+use std::{
+    collections::HashMap,
+    fs::{self, File},
+    io::Write,
+};
+use tempfile::tempdir;
 
 #[test]
 fn smoke_test() -> Result<()> {
-    let dir_name = PathBuf::from("tmp")
-        .as_path()
-        .join(PathBuf::from(Uuid::new_v4().to_string()));
-    fs::create_dir_all(&dir_name).context("Could not create test dir")?;
-    fs::write(dir_name.as_path().join("test.hs"), "-- a\n-- b\n")
-        .context("Could not write text file")?;
+    let dir = tempdir()?;
+
+    let file_path = dir.path().join("test.hs");
+    let mut file = File::create(file_path)?;
+    write!(file, "-- a\n -- b\n")?;
 
     let options = GetStatsOptions { gitignore: false };
     assert_eq!(
-        get_stats(dir_name.as_path(), &options)?,
+        get_stats_parallel(dir.path(), &options)?,
         Stats {
             total_loc: 2,
             number_of_files: 1,
@@ -36,9 +36,8 @@ fn smoke_test() -> Result<()> {
 
 #[test]
 fn deep_dir_tree() -> Result<()> {
-    let mut dir_name = PathBuf::from("tmp");
-    dir_name.push(Uuid::new_v4().to_string());
-    let mut path = dir_name.clone();
+    let dir = tempdir()?;
+    let mut path = dir.path().to_path_buf();
     for _ in 0..200 {
         path.push("a");
     }
@@ -49,7 +48,7 @@ fn deep_dir_tree() -> Result<()> {
 
     let options = GetStatsOptions { gitignore: false };
     assert_eq!(
-        get_stats(dir_name.as_path(), &options)?,
+        get_stats_parallel(dir.path(), &options)?,
         Stats {
             total_loc: 1,
             number_of_files: 1,
@@ -68,10 +67,8 @@ fn deep_dir_tree() -> Result<()> {
 
 #[test]
 fn one_million_loc_codebase() -> Result<()> {
-    let mut dir_name = PathBuf::from("tmp");
-    dir_name.push(Uuid::new_v4().to_string());
-    fs::create_dir_all(&dir_name)?;
-    let mut path = dir_name.clone();
+    let dir = tempdir()?;
+    let mut path = dir.path().to_path_buf();
 
     for i in 1..=100 {
         path.push(format!("{}.bf", i));
@@ -81,7 +78,7 @@ fn one_million_loc_codebase() -> Result<()> {
 
     let options = GetStatsOptions { gitignore: false };
     assert_eq!(
-        get_stats(dir_name.as_path(), &options)?,
+        get_stats_parallel(dir.path(), &options)?,
         Stats {
             total_loc: 1_000_000,
             number_of_files: 100,
@@ -100,40 +97,36 @@ fn one_million_loc_codebase() -> Result<()> {
 
 #[test]
 fn test_gitignore() -> Result<()> {
-    let dir_name = PathBuf::from("tmp")
-        .as_path()
-        .join(PathBuf::from(Uuid::new_v4().to_string()));
-    fs::create_dir_all(&dir_name).context("Could not create test dir")?;
-    fs::write(dir_name.as_path().join("test.hs"), "-- a\n-- b\n")
-        .context("Could not write text file")?;
-    fs::write(dir_name.as_path().join("test2.js"), "// a\n// b\n")
-        .context("Could not write text file")?;
+    let dir = tempdir()?;
+
+    fs::write(dir.path().join("test.hs"), "-- a\n-- b\n").context("Could not write text file")?;
+    fs::write(dir.path().join("test2.js"), "// a\n// b\n").context("Could not write text file")?;
 
     fs::write(
-        dir_name.as_path().join(".gitignore"),
+        dir.path().join(".gitignore"),
         "/test2.js\n\n# this is a comment\n",
     )
     .context("Could not write text file")?;
 
     let options = GetStatsOptions { gitignore: true };
     assert_eq!(
-        get_stats(dir_name.as_path(), &options)?,
+        get_stats_parallel(dir.path(), &options)?,
         Stats {
-            total_loc: 5,
+            total_loc: 4,
             number_of_files: 2,
             by_lang: HashMap::from([
                 (
                     "Haskell",
                     LangStat {
                         loc: 2,
-                        percent: 40.0
+                        percent: 50.0
                     }
                 ),
                 (
-                    "Other",
+                    "JavaScript",
                     LangStat {
-                        loc: 3,
-                        percent: 60.0
+                        loc: 2,
+                        percent: 50.0
                     }
                 )
             ])

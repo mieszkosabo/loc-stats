@@ -33,15 +33,15 @@ impl Stats {
 
         let longest_name_len = &self
             .by_lang
-            .iter()
-            .map(|(name, _)| name.len())
+            .keys()
+            .map(|name| name.len())
             .max()
             .unwrap_or_default();
 
         let longest_loc_len = &&self
             .by_lang
-            .iter()
-            .map(|(_, stats)| format!("{}", stats.loc).len())
+            .values()
+            .map(|stats| format!("{}", stats.loc).len())
             .max()
             .unwrap_or_default();
 

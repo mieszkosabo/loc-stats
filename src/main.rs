@@ -1,8 +1,7 @@
-use std::path::PathBuf;
-
 use anyhow::Result;
 use clap::Parser;
-use loc_stats::get_stats::{get_stats, GetStatsOptions};
+use loc_stats::get_stats::{get_stats_parallel, GetStatsOptions};
+use std::path::PathBuf;
 
 #[derive(Parser, Debug)]
 #[clap(author, version, about, long_about = None)]
@@ -24,7 +23,7 @@ fn main() -> Result<()> {
         gitignore: args.gitignore.unwrap_or(true),
     };
 
-    let stats = get_stats(PathBuf::from(args.path).as_path(), &options)?;
+    let stats = get_stats_parallel(PathBuf::from(&args.path).as_path(), &options)?;
 
     if args.json {
         let json = serde_json::to_string_pretty(&stats)?;
